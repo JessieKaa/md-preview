@@ -55,18 +55,6 @@ body {
   backdrop-filter: blur(12px);
 }
 
-#open-file {
-  min-width: 54px;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--soft);
-  color: var(--fg);
-  font: inherit;
-  font-size: 14px;
-}
-
 #title {
   min-width: 0;
   overflow: hidden;
@@ -112,8 +100,7 @@ body.empty #preview {
   margin: 0;
 }
 
-#default-settings {
-  display: none;
+#open-file {
   min-height: 40px;
   margin-top: 18px;
   padding: 0 14px;
@@ -123,11 +110,6 @@ body.empty #preview {
   color: var(--fg);
   font: inherit;
   font-size: 14px;
-}
-
-body.android #default-settings {
-  display: inline-flex;
-  align-items: center;
 }
 
 #preview {
