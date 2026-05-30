@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.6
+
+- Restored the desktop empty-state visual style while keeping the new Open File and Recent entries.
+- Matched the desktop toolbar Open icon to the mobile app's folder icon.
+
 ## 1.1.5
 
 - Added a cleaner desktop start screen with a primary Open File action and local recent files.

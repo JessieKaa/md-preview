@@ -72,7 +72,6 @@ fn detect_lang() -> Lang {
 struct Strings {
     drop_hint: &'static str,
     cannot_read: &'static str,
-    empty_subtitle: &'static str,
     open_file: &'static str,
     recent_title: &'static str,
     btn_edit: &'static str,
@@ -88,23 +87,21 @@ impl Strings {
     fn for_lang(lang: Lang) -> Self {
         match lang {
             Lang::Zh => Strings {
-                drop_hint: "打开 Markdown 文件",
+                drop_hint: "Drop a .md file here or press Cmd/Ctrl+O to open",
                 cannot_read: "无法读取文件",
-                empty_subtitle: "拖入 .md 文件，或从最近文件继续。",
-                open_file: "打开文件",
-                recent_title: "最近文件",
+                open_file: "Open File",
+                recent_title: "Recent",
                 btn_edit: "编辑 (Cmd/Ctrl+E)",
                 btn_preview: "预览 (Cmd/Ctrl+E)",
-                btn_open: "打开文件 (Cmd/Ctrl+O)",
+                btn_open: "Open File (Cmd/Ctrl+O)",
                 btn_search: "搜索 (Cmd/Ctrl+F)",
                 btn_print: "打印 (Cmd/Ctrl+P)",
                 btn_update: "发现新版本",
                 search_placeholder: "搜索",
             },
             Lang::En => Strings {
-                drop_hint: "Open a Markdown file",
+                drop_hint: "Drop a .md file here or press Cmd/Ctrl+O to open",
                 cannot_read: "Cannot read file",
-                empty_subtitle: "Drop a .md file here, or continue from recent files.",
                 open_file: "Open File",
                 recent_title: "Recent",
                 btn_edit: "Edit (Cmd/Ctrl+E)",
@@ -472,9 +469,8 @@ fn build_enhancer_bootstrap(flags: EnhanceFlags, loaded: EnhanceFlags) -> Vec<St
 
 fn empty_preview_html(s: &Strings, recent_files: &[PathBuf]) -> String {
     let mut html = format!(
-        r#"<section class="empty-state"><div class="empty-mark">#</div><h1>{}</h1><p>{}</p><button class="empty-open" type="button" data-open-file>{}</button>"#,
+        r#"<div class="empty"><div class="icon">#</div><div>{}</div><button class="empty-open" type="button" data-open-file>{}</button>"#,
         html_escape_text(s.drop_hint),
-        html_escape_text(s.empty_subtitle),
         html_escape_text(s.open_file)
     );
 
@@ -501,7 +497,7 @@ fn empty_preview_html(s: &Strings, recent_files: &[PathBuf]) -> String {
         html.push_str("</div></div>");
     }
 
-    html.push_str("</section>");
+    html.push_str("</div>");
     html
 }
 
@@ -574,36 +570,26 @@ body {{
 #preview a:hover {{ text-decoration: underline; }}
 #preview ul, #preview ol {{ padding-left: 2em; }}
 #preview input[type="checkbox"] {{ margin-right: 6px; }}
-	.empty-state {{
-	  min-height: calc(100vh - 48px);
-	  display: flex; flex-direction: column; align-items: center; justify-content: center;
-	  color: #6a737d; text-align: center; gap: 12px;
-	}}
-	.empty-mark {{
-	  width: 72px; height: 72px; display: grid; place-items: center;
-	  border-radius: 18px; background: #111; color: #fff;
-	  font-size: 46px; font-weight: 800; line-height: 1;
-	  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-	}}
-	.empty-state h1 {{ margin: 12px 0 0; color: #1a1a1a; font-size: 28px; line-height: 1.2; }}
-	.empty-state p {{ margin: 0; max-width: 420px; font-size: 15px; }}
+	.empty {{ display: flex; flex-direction: column; align-items: center; justify-content: center;
+	  height: 60vh; color: #999; font-size: 18px; gap: 12px; text-align: center; }}
+	.empty .icon {{ font-size: 48px; opacity: 0.4; }}
 	.empty-open {{
-	  margin-top: 10px; min-width: 132px; height: 42px; padding: 0 18px;
-	  border: 0; border-radius: 8px; background: #1a1a1a; color: #fff;
-	  font: inherit; font-weight: 600; cursor: pointer;
+	  margin-top: 6px; min-height: 40px; padding: 0 16px;
+	  border: 1px solid #ddd; border-radius: 8px; background: #fff;
+	  color: #1a1a1a; font: inherit; font-size: 15px; cursor: pointer;
 	}}
-	.empty-open:hover {{ background: #000; }}
-	.recent {{ width: min(560px, 100%); margin-top: 22px; text-align: left; }}
-	.recent h2 {{ margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0; color: #8c959f; text-transform: uppercase; }}
+	.empty-open:hover {{ background: #f5f5f5; color: #000; }}
+	.recent {{ width: min(480px, 100%); margin-top: 16px; text-align: left; }}
+	.recent h2 {{ margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0; color: #999; text-transform: uppercase; }}
 	.recent-list {{ display: grid; gap: 6px; }}
 	.recent-item {{
-	  width: 100%; min-height: 48px; padding: 8px 10px; border: 1px solid #e5e7eb;
+	  width: 100%; min-height: 44px; padding: 7px 10px; border: 1px solid #eee;
 	  border-radius: 8px; background: #fff; color: inherit; text-align: left; cursor: pointer;
 	  display: grid; gap: 1px;
 	}}
-	.recent-item:hover {{ background: #f6f8fa; border-color: #d0d7de; }}
-	.recent-name {{ color: #24292f; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-	.recent-path {{ color: #8c959f; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+	.recent-item:hover {{ background: #f7f7f7; }}
+	.recent-name {{ color: #555; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+	.recent-path {{ color: #aaa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 
 /* Floating toolbar (top-right) — hover-reveal, hidden in empty state */
 .toolbar {{
@@ -654,10 +640,11 @@ body.empty .toolbar {{ display: none !important; }}
 	  }}
 	  .toolbar button:hover {{ color: #fff; background: rgba(55,55,55,1); }}
 	  .toolbar .update-btn {{ color: #6cb6ff; }}
-	  .empty-mark {{ background: #f4f4f4; color: #111; }}
-	  .empty-state h1, .recent-name {{ color: #f0f0f0; }}
-	  .recent-item {{ background: #242424; border-color: #333; }}
-	  .recent-item:hover {{ background: #2d2d2d; border-color: #444; }}
+		  .empty-open {{ background: #242424; border-color: #444; color: #ddd; }}
+		  .empty-open:hover {{ background: #2d2d2d; color: #fff; }}
+		  .recent-name {{ color: #ddd; }}
+		  .recent-item {{ background: #242424; border-color: #333; }}
+		  .recent-item:hover {{ background: #2d2d2d; }}
 	  .findbar {{ background: rgba(34,34,34,0.96); border-color: rgba(255,255,255,0.1); }}
 	  .findbar button:hover {{ background: #333; color: #fff; }}
 	}}
@@ -707,7 +694,7 @@ body.editing #btn-print {{ display: none; }}
 (function(){{
 	  var ICON_EDIT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
 	  var ICON_VIEW = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-	  var ICON_OPEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13v8"/><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="m8 17 4-4 4 4"/></svg>';
+	  var ICON_OPEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6A2 2 0 0 1 18.45 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>';
 	  var ICON_SEARCH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
 	  var ICON_PRINT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
 	  var ICON_UPDATE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
@@ -1045,6 +1032,8 @@ mod tests {
         assert!(html.contains("Recent"));
         assert!(html.contains("example.md"));
         assert!(html.contains("data-recent-index=\"0\""));
+        assert!(html.contains(r#"<div class="icon">#</div>"#));
+        assert!(!html.contains("empty-mark"));
     }
 
     #[test]
@@ -1353,7 +1342,7 @@ fn main() {
             || {
                 build_page(
                     &format!(
-                        r#"<section class="empty-state"><div class="empty-mark">#</div><h1>{}</h1><button class="empty-open" type="button" data-open-file>{}</button></section>"#,
+                        r#"<div class="empty"><div class="icon">#</div><div>{}</div><button class="empty-open" type="button" data-open-file>{}</button></div>"#,
                         html_escape_text(strings.cannot_read),
                         html_escape_text(strings.open_file)
                     ),
