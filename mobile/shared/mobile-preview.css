@@ -90,9 +90,17 @@ body:not(.empty) #top-actions {
 }
 
 .tool-button {
-  min-height: 34px;
-  padding: 0 9px;
-  font-size: 13px;
+  display: grid;
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  place-items: center;
+}
+
+.tool-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 #search-bar {
@@ -347,7 +355,8 @@ body.empty #preview {
 
 @media (max-width: 420px) {
   .tool-button {
-    padding: 0 7px;
+    width: 34px;
+    min-width: 34px;
   }
 
   #search-bar {
@@ -356,5 +365,61 @@ body.empty #preview {
 
   #search-input {
     flex-basis: 100%;
+  }
+}
+
+@media print {
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --muted: #555555;
+    --line: #d0d7de;
+    --soft: #f6f8fa;
+    --link: #000000;
+  }
+
+  html,
+  body {
+    min-height: auto;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  #topbar,
+  #search-bar,
+  #empty-state {
+    display: none !important;
+  }
+
+  #app {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  #preview {
+    display: block !important;
+    overflow-wrap: break-word;
+  }
+
+  #preview a {
+    color: #000000;
+    text-decoration: underline;
+  }
+
+  #preview pre,
+  #preview blockquote,
+  #preview table {
+    break-inside: avoid;
+  }
+
+  #preview .katex-display,
+  #preview .mdp-mermaid {
+    overflow: visible;
+  }
+
+  #preview mark.search-hit {
+    background: transparent;
   }
 }

@@ -47,12 +47,17 @@ await page.locator('#search-toggle').click();
 await page.locator('#search-input').fill('math');
 await page.waitForSelector('mark.search-hit.current', { timeout: 1000 });
 await page.locator('a[href^="javascript:"]').click();
+await page.emulateMedia({ media: 'print' });
 
 const result = await page.evaluate(() => ({
   title: document.getElementById('title').textContent,
   katex: document.querySelectorAll('.katex').length,
   mermaidSvg: document.querySelectorAll('.mdp-mermaid svg').length,
+  topActionIcons: document.querySelectorAll('#top-actions .tool-button svg').length,
   searchHits: document.querySelectorAll('mark.search-hit').length,
+  printTopbarDisplay: getComputedStyle(document.getElementById('topbar')).display,
+  printSearchDisplay: getComputedStyle(document.getElementById('search-bar')).display,
+  printPreviewDisplay: getComputedStyle(document.getElementById('preview')).display,
   bad: window.__bad === 1
 }));
 
@@ -66,6 +71,14 @@ if (result.title !== 'mobile-fixture.md') {
 }
 if (!result.katex || !result.mermaidSvg || !result.searchHits) {
   throw new Error(`Renderer feature check failed: ${JSON.stringify(result)}`);
+}
+if (result.topActionIcons !== 3) {
+  throw new Error(`Toolbar icons missing: ${JSON.stringify(result)}`);
+}
+if (result.printTopbarDisplay !== 'none' ||
+    result.printSearchDisplay !== 'none' ||
+    result.printPreviewDisplay === 'none') {
+  throw new Error(`Print stylesheet check failed: ${JSON.stringify(result)}`);
 }
 if (result.bad) {
   throw new Error('javascript: link executed');
