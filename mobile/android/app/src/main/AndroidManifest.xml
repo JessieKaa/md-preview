@@ -26,6 +26,12 @@
                 <data android:mimeType="text/md" />
                 <data android:mimeType="text/vnd.daringfireball.markdown" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/markdown" />
+                <data android:mimeType="application/x-markdown" />
+                <data android:mimeType="application/md" />
+                <data android:mimeType="application/x-md" />
+                <data android:mimeType="application/vnd.daringfireball.markdown" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
 
@@ -65,6 +71,29 @@
                 <data android:mimeType="text/md" />
                 <data android:mimeType="text/vnd.daringfireball.markdown" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/markdown" />
+                <data android:mimeType="application/x-markdown" />
+                <data android:mimeType="application/md" />
+                <data android:mimeType="application/x-md" />
+                <data android:mimeType="application/vnd.daringfireball.markdown" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="text/md" />
+                <data android:mimeType="text/vnd.daringfireball.markdown" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/markdown" />
+                <data android:mimeType="application/x-markdown" />
+                <data android:mimeType="application/md" />
+                <data android:mimeType="application/x-md" />
+                <data android:mimeType="application/vnd.daringfireball.markdown" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
