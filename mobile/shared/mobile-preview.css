@@ -77,7 +77,6 @@ body:not(.empty) #top-actions {
 
 .tool-button,
 .open-file,
-#search-bar button,
 .recent-item {
   min-height: 40px;
   padding: 0 12px;
@@ -103,29 +102,28 @@ body:not(.empty) #top-actions {
   height: 18px;
 }
 
-#search-bar {
-  position: sticky;
-  top: 52px;
-  z-index: 9;
+#search-box {
+  min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--line);
-  background: var(--bar);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
 }
 
-#search-bar[hidden] {
+#search-box[hidden] {
+  display: none;
+}
+
+body.searching #title,
+body.searching #top-actions {
   display: none;
 }
 
 #search-input {
   min-width: 0;
   flex: 1;
-  min-height: 38px;
-  padding: 0 10px;
+  min-height: 36px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
@@ -135,7 +133,7 @@ body:not(.empty) #top-actions {
 }
 
 #search-count {
-  min-width: 42px;
+  min-width: 34px;
   color: var(--muted);
   font-size: 13px;
   text-align: center;
@@ -358,14 +356,6 @@ body.empty #preview {
     width: 34px;
     min-width: 34px;
   }
-
-  #search-bar {
-    flex-wrap: wrap;
-  }
-
-  #search-input {
-    flex-basis: 100%;
-  }
 }
 
 @media print {
@@ -386,7 +376,7 @@ body.empty #preview {
   }
 
   #topbar,
-  #search-bar,
+  #search-box,
   #empty-state {
     display: none !important;
   }

@@ -5,11 +5,9 @@
   var openButtons = document.querySelectorAll('.open-file');
   var printButton = document.getElementById('print-file');
   var searchToggle = document.getElementById('search-toggle');
-  var searchBar = document.getElementById('search-bar');
+  var searchBox = document.getElementById('search-box');
   var searchInput = document.getElementById('search-input');
   var searchCount = document.getElementById('search-count');
-  var searchPrev = document.getElementById('search-prev');
-  var searchNext = document.getElementById('search-next');
   var searchClose = document.getElementById('search-close');
   var recentSection = document.getElementById('recent-section');
   var recentList = document.getElementById('recent-list');
@@ -19,13 +17,16 @@
   var searchHits = [];
   var currentHit = -1;
   var recentItems = [];
+  var assetBase = new URL('.', window.location.href).href;
   var ICON_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14 12 8l6 6"/><path d="M12 8v13"/><path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5"/><path d="M4 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v3"/></svg>';
   var ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
   var ICON_PRINT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
   document.getElementById('top-open').innerHTML = ICON_OPEN;
   searchToggle.innerHTML = ICON_SEARCH;
   printButton.innerHTML = ICON_PRINT;
+  searchClose.innerHTML = ICON_CLOSE;
 
   if (window.marked && window.marked.setOptions) {
     window.marked.setOptions({
@@ -81,7 +82,7 @@
     loaded[key] = true;
     return new Promise(function(resolve, reject) {
       var script = document.createElement('script');
-      script.src = src;
+      script.src = new URL(src, assetBase).href;
       script.async = true;
       script.onload = resolve;
       script.onerror = reject;
@@ -94,7 +95,7 @@
     var link = document.createElement('link');
     link.id = id;
     link.rel = 'stylesheet';
-    link.href = href;
+    link.href = new URL(href, assetBase).href;
     document.head.appendChild(link);
   }
 
@@ -118,7 +119,7 @@
   }
 
   function render(payload) {
-    clearSearch();
+    closeSearch();
     var markdown = payload && payload.markdown ? String(payload.markdown) : '';
     var name = payload && payload.name ? String(payload.name) : 'Untitled.md';
     var baseHref = payload && payload.baseHref ? String(payload.baseHref) : '';
@@ -176,7 +177,7 @@
   }
 
   function updateSearchCount() {
-    searchCount.textContent = searchHits.length ? (currentHit + 1) + '/' + searchHits.length : '0/0';
+    searchCount.textContent = searchHits.length ? (currentHit + 1) + '/' + searchHits.length : '0';
   }
 
   function selectHit(index) {
@@ -280,7 +281,8 @@
   });
 
   searchToggle.addEventListener('click', function() {
-    searchBar.hidden = false;
+    document.body.classList.add('searching');
+    searchBox.hidden = false;
     searchInput.focus();
   });
 
@@ -288,25 +290,31 @@
     runSearch(searchInput.value);
   });
 
-  searchPrev.addEventListener('click', function() {
-    selectHit(currentHit - 1);
+  searchInput.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      selectHit(currentHit + 1);
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSearch();
+    }
   });
 
-  searchNext.addEventListener('click', function() {
-    selectHit(currentHit + 1);
-  });
-
-  searchClose.addEventListener('click', function() {
-    searchBar.hidden = true;
+  function closeSearch() {
+    document.body.classList.remove('searching');
+    searchBox.hidden = true;
     searchInput.value = '';
     clearSearch();
-  });
+  }
+
+  searchClose.addEventListener('click', closeSearch);
 
   window.MDPreview = {
     render: render,
     setRecent: renderRecent,
     setEmpty: function() {
-      clearSearch();
+      closeSearch();
       document.body.classList.add('empty');
       titleEl.textContent = 'MD Preview';
       previewEl.innerHTML = '';

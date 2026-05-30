@@ -13,19 +13,17 @@
 <body class="empty">
   <header id="topbar">
     <div id="title">MD Preview</div>
+    <div id="search-box" hidden>
+      <input id="search-input" type="search" placeholder="Find" autocomplete="off" autocapitalize="none">
+      <span id="search-count">0</span>
+      <button id="search-close" class="tool-button" type="button" aria-label="Close search" title="Close search"></button>
+    </div>
     <nav id="top-actions" aria-label="Document actions">
       <button id="top-open" class="open-file tool-button" type="button" aria-label="Open Markdown file" title="Open"></button>
       <button id="search-toggle" class="tool-button" type="button" aria-label="Find in document" title="Find"></button>
       <button id="print-file" class="tool-button" type="button" aria-label="Print document" title="Print"></button>
     </nav>
   </header>
-  <section id="search-bar" hidden>
-    <input id="search-input" type="search" placeholder="Find in document" autocomplete="off" autocapitalize="none">
-    <span id="search-count">0/0</span>
-    <button id="search-prev" type="button" aria-label="Previous match">Prev</button>
-    <button id="search-next" type="button" aria-label="Next match">Next</button>
-    <button id="search-close" type="button" aria-label="Close search">Close</button>
-  </section>
   <main id="app">
     <section id="empty-state">
       <div class="mark">#</div>
