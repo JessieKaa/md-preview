@@ -68,9 +68,9 @@ if [ -x scripts/verify-sparkle-update.sh ]; then
   ran=1
 fi
 
-if [ -x scripts/verify-windows-update.sh ]; then
-  echo "[agent-verify] WinSparkle update"
-  scripts/verify-windows-update.sh
+if [ -x scripts/verify-windows-self-update.sh ]; then
+  echo "[agent-verify] Windows self-update"
+  bash scripts/verify-windows-self-update.sh
   ran=1
 fi
 

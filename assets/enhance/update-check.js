@@ -58,7 +58,7 @@
       return /macos.*\.dmg$/i;
     }
     if (platform.indexOf('win') >= 0 || ua.indexOf('windows') >= 0) {
-      return /windows.*setup.*\.exe$/i;
+      return /^MD-Preview-windows-x64\.exe$/i;
     }
     if (platform.indexOf('linux') >= 0 || ua.indexOf('linux') >= 0) {
       return /linux.*\.tar\.gz$/i;
@@ -66,18 +66,24 @@
     return null;
   }
 
-  function selectDownloadUrl(release) {
+  function selectDownloadAsset(release) {
     var pattern = preferredAssetPattern();
     var assets = release && Array.isArray(release.assets) ? release.assets : [];
-    if (!pattern) return release && release.html_url;
+    if (!pattern) return null;
 
     for (var i = 0; i < assets.length; i++) {
       var asset = assets[i];
       if (asset && pattern.test(asset.name || '') && asset.browser_download_url) {
-        return asset.browser_download_url;
+        return asset;
       }
     }
 
+    return null;
+  }
+
+  function selectDownloadUrl(release) {
+    var asset = selectDownloadAsset(release);
+    if (asset) return asset.browser_download_url;
     return release && release.html_url;
   }
 
@@ -121,7 +127,14 @@
 
     function openRelease() {
       var url = button.dataset.releaseUrl || latestUrl;
-      if (config.nativeUpdater && window.ipc) window.ipc.postMessage('check-updates');
+      if (config.nativeUpdater && window.ipc) {
+        window.ipc.postMessage([
+          'check-updates:',
+          url,
+          button.dataset.releaseDigest || '',
+          button.dataset.releaseTag || ''
+        ].join('\n'));
+      }
       else if (window.ipc) window.ipc.postMessage('open-url:' + url);
       else window.location.href = url;
     }
@@ -130,8 +143,11 @@
       if (!release || !release.tag_name) return false;
       if (!isNewerVersion(release.tag_name, config.currentVersion)) return false;
 
-      var url = release.download_url || selectDownloadUrl(release) || release.html_url || latestUrl;
+      var asset = selectDownloadAsset(release);
+      var url = release.download_url || (asset && asset.browser_download_url) || release.html_url || latestUrl;
       button.dataset.releaseUrl = url;
+      button.dataset.releaseDigest = (asset && asset.digest) || release.download_digest || '';
+      button.dataset.releaseTag = release.tag_name || '';
       button.title = label + ': ' + release.tag_name;
       button.setAttribute('aria-label', button.title);
       button.hidden = false;
@@ -157,7 +173,8 @@
             applyRelease({
               tag_name: parsed.tagName,
               html_url: parsed.htmlUrl,
-              download_url: parsed.downloadUrl
+              download_url: parsed.downloadUrl,
+              download_digest: parsed.downloadDigest
             });
             return;
           }
@@ -184,8 +201,18 @@
             currentVersion: config.currentVersion,
             tagName: release && release.tag_name,
             htmlUrl: release && release.html_url,
-            downloadUrl: release && selectDownloadUrl(release)
+            downloadUrl: release && selectDownloadUrl(release),
+            downloadDigest: (function() {
+              var asset = selectDownloadAsset(release);
+              return asset && asset.digest;
+            })()
           }));
+          if (release) {
+            release.download_digest = (function() {
+              var asset = selectDownloadAsset(release);
+              return asset && asset.digest;
+            })();
+          }
           applyRelease(release);
         })
         .catch(function() {})

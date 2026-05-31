@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.12
+
+- Replaced the Windows installer/WinSparkle update path with a single-file self-updater.
+- Windows releases now publish `MD-Preview-windows-x64.exe` directly; the app downloads the next exe, verifies GitHub's SHA-256 digest, exits, replaces itself with a temporary PowerShell script, and relaunches.
+- Removed the Windows runtime dependency on `WinSparkle.dll` and the NSIS setup package from the release flow.
+
 ## 1.1.11
 
 - Added native Windows self-update support with WinSparkle, including EdDSA-signed `appcast-windows.xml`.
