@@ -18,7 +18,7 @@
 - [x] Windows 应用内更新走 WinSparkle，读取 `appcast-windows.xml`，并使用 EdDSA 公钥校验更新包。
 - [x] macOS Sparkle 更新能力保持不回退。
 - [x] `./scripts/verify.sh` 通过。
-- [ ] `v1.1.11` GitHub Release 完成，Release asset 包含 macOS DMG、Windows 安装器、Windows ZIP、Linux tarball、`appcast.xml`、`appcast-windows.xml`。
+- [x] `v1.1.11` GitHub Release 完成，Release asset 包含 macOS DMG、Windows 安装器、Windows ZIP、Linux tarball、`appcast.xml`、`appcast-windows.xml`。
 
 ## 执行记录
 
@@ -43,6 +43,15 @@
 
 命令：./scripts/verify.sh
 结果：通过。guard、cargo test、macOS Sparkle 验证、WinSparkle 验证、iOS build/parse、Android debug/release、mobile renderer/release readiness 均通过。
+
+命令：GitHub Actions / Release / Pages
+结果：通过。`v1.1.11` 的 CI、Release、Pages 全部成功。
+
+命令：release asset / appcast 线上验证
+结果：通过。Release 含 6 个资产：macOS DMG、Windows Setup、Windows ZIP、Linux tarball、`appcast.xml`、`appcast-windows.xml`；两个 appcast 均可从 `latest/download` 获取并含 EdDSA 签名。
+
+命令：macOS 签名验证
+结果：通过。线上 DMG 与本地签名 DMG SHA-256 一致；`xcrun stapler validate` 通过；`/Applications/MD Preview.app` 通过 `codesign --verify --deep --strict` 与 `spctl -a -t execute`。
 ```
 
 ## 风险和假设
