@@ -150,6 +150,8 @@
       button.dataset.releaseTag = release.tag_name || '';
       button.title = label + ': ' + release.tag_name;
       button.setAttribute('aria-label', button.title);
+      var text = button.querySelector ? button.querySelector('.update-label') : null;
+      if (text) text.textContent = label;
       button.hidden = false;
       if (button.parentElement) button.parentElement.classList.add('has-update');
       return true;

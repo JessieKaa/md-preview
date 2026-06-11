@@ -100,7 +100,7 @@ impl Strings {
                 btn_open: "Open File (Cmd/Ctrl+O)",
                 btn_search: "搜索 (Cmd/Ctrl+F)",
                 btn_print: "打印 (Cmd/Ctrl+P)",
-                btn_update: "发现新版本",
+                btn_update: "Update",
                 search_placeholder: "搜索",
             },
             Lang::En => Strings {
@@ -113,7 +113,7 @@ impl Strings {
                 btn_open: "Open File (Cmd/Ctrl+O)",
                 btn_search: "Find (Cmd/Ctrl+F)",
                 btn_print: "Print (Cmd/Ctrl+P)",
-                btn_update: "Update available",
+                btn_update: "Update",
                 search_placeholder: "Find",
             },
         }
@@ -572,8 +572,13 @@ fn build_enhancer_bootstrap(flags: EnhanceFlags, loaded: EnhanceFlags) -> Vec<St
 }
 
 fn empty_preview_html(s: &Strings, recent_files: &[PathBuf]) -> String {
+    let empty_class = if recent_files.is_empty() {
+        "empty"
+    } else {
+        "empty has-recent"
+    };
     let mut html = format!(
-        r#"<div class="empty"><div class="icon">#</div><div>{}</div><button class="empty-open" type="button" data-open-file>{}</button>"#,
+        r#"<div class="{empty_class}"><div class="icon">#</div><div>{}</div><button class="empty-open" type="button" data-open-file>{}</button>"#,
         html_escape_text(s.drop_hint),
         html_escape_text(s.open_file)
     );
@@ -685,7 +690,13 @@ body {{
 #preview ul, #preview ol {{ padding-left: 2em; }}
 #preview input[type="checkbox"] {{ margin-right: 6px; }}
 	.empty {{ display: flex; flex-direction: column; align-items: center; justify-content: center;
-	  height: 60vh; color: #999; font-size: 18px; gap: 12px; text-align: center; }}
+	  min-height: 60vh; color: #999; font-size: 18px; gap: 12px; text-align: center; }}
+	.empty.has-recent {{
+	  justify-content: flex-start;
+	  min-height: calc(100vh - 48px);
+	  padding: clamp(56px, 10vh, 96px) 0 40px;
+	  box-sizing: border-box;
+	}}
 	.empty .icon {{ font-size: 48px; opacity: 0.4; }}
 	.empty-open {{
 	  margin-top: 6px; min-height: 40px; padding: 0 16px;
@@ -729,7 +740,11 @@ body.empty .toolbar.has-update button:not(.update-btn) {{ display: none !importa
 }}
 .toolbar button:hover {{ color: #000; background: rgba(255,255,255,1); }}
 .toolbar button[hidden] {{ display: none !important; }}
-	.toolbar .update-btn {{ color: #0969da; }}
+	.toolbar .update-btn {{
+	  width: auto; min-width: 76px; padding: 0 11px; grid-auto-flow: column; gap: 5px;
+	  font-size: 13px; font-weight: 600; color: #0969da;
+	}}
+	.toolbar .update-mark {{ font-size: 17px; line-height: 1; transform: translateY(-0.5px); }}
 	.findbar {{
 	  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
 	  display: none; align-items: center; gap: 6px; z-index: 101;
@@ -816,7 +831,6 @@ body.editing #btn-print {{ display: none; }}
 	  var ICON_OPEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6A2 2 0 0 1 18.45 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>';
 	  var ICON_SEARCH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
 	  var ICON_PRINT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
-	  var ICON_UPDATE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
 	  var ICON_UP = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>';
 	  var ICON_DOWN = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
 	  var ICON_CLOSE = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
@@ -841,7 +855,7 @@ body.editing #btn-print {{ display: none; }}
 	  btnSearch.innerHTML = ICON_SEARCH;
 	  btnToggle.innerHTML = ICON_EDIT;
 	  btnPrint.innerHTML = ICON_PRINT;
-	  btnUpdate.innerHTML = ICON_UPDATE;
+	  btnUpdate.innerHTML = '<span class="update-mark">↻</span><span class="update-label">{btn_update}</span>';
 	  findPrev.innerHTML = ICON_UP;
 	  findNext.innerHTML = ICON_DOWN;
 	  findClose.innerHTML = ICON_CLOSE;
@@ -1081,6 +1095,7 @@ window.__mdPreviewInstallUpdateCheck({{
   apiUrl: 'https://api.github.com/repos/vorojar/md-preview/releases?per_page=20',
   latestUrl: 'https://github.com/vorojar/md-preview/releases/latest'
 }});
+{test_update_release_js}
 </script>
 </body></html>"#,
         css_light = HLJS_LIGHT,
@@ -1097,6 +1112,7 @@ window.__mdPreviewInstallUpdateCheck({{
         search_placeholder = s.search_placeholder,
         btn_update_js = escape_js(s.btn_update),
         app_version = update_current_version(),
+        test_update_release_js = test_update_release_js(),
         native_updater = native_updater,
         body_class = body_class,
         needs_math = flags.math,
@@ -1128,6 +1144,33 @@ fn update_current_version() -> String {
     }
 
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+fn test_update_release_js() -> String {
+    #[cfg(debug_assertions)]
+    {
+        let Ok(tag) = std::env::var("MD_PREVIEW_TEST_UPDATE_TAG") else {
+            return String::new();
+        };
+        let tag = tag.trim();
+        if tag.is_empty() {
+            return String::new();
+        }
+        let escaped_tag = escape_js(tag);
+        return format!(
+            r#"if(window.__mdPreviewApplyUpdateRelease)window.__mdPreviewApplyUpdateRelease({{
+  tag_name: '{tag}',
+  html_url: 'https://github.com/vorojar/md-preview/releases/tag/{tag}',
+  download_url: 'https://github.com/vorojar/md-preview/releases/download/{tag}/MD-Preview-macOS-universal.dmg'
+}});"#,
+            tag = escaped_tag
+        );
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        String::new()
+    }
 }
 
 fn watch_scope_for_file(path: &Path) -> &Path {
@@ -1274,8 +1317,21 @@ mod tests {
         assert!(html.contains("Recent"));
         assert!(html.contains("example.md"));
         assert!(html.contains("data-recent-index=\"0\""));
+        assert!(html.contains(r#"<div class="empty has-recent">"#));
         assert!(html.contains(r#"<div class="icon">#</div>"#));
         assert!(!html.contains("empty-mark"));
+
+        let page = build_page(
+            &html,
+            "",
+            None,
+            EnhanceFlags::default(),
+            &strings,
+            true,
+            false,
+        );
+        assert!(page.contains(".empty.has-recent"));
+        assert!(!page.contains(".empty.has-recent .recent { max-height"));
     }
 
     #[test]
@@ -1565,7 +1621,16 @@ mod macos_updater {
             .unwrap_or(false)
     }
 
+    pub fn installer_enabled() -> bool {
+        std::env::var("MD_PREVIEW_ENABLE_SPARKLE_INSTALLER")
+            .map(|value| value == "1")
+            .unwrap_or(false)
+    }
+
     pub fn can_install_updates() -> bool {
+        if !installer_enabled() {
+            return false;
+        }
         if bundled_framework_path().is_none() {
             return false;
         }

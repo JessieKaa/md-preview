@@ -62,6 +62,8 @@ cat > "$APP_DIR/Contents/Info.plist" << PLIST
     <string>${SPARKLE_PUBLIC_KEY}</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
