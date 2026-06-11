@@ -6,10 +6,14 @@
 #
 # Enable once per clone:   git config core.hooksPath hooks
 #
-# Live log: tail -f target/.release-sign.log
+# Live log: tail -f target/release-sign-<tag>.log
 # Final state: macOS notification fires when signing succeeds or fails.
 
 set -e
+
+if [ "${MD_PREVIEW_RELEASE_FOREGROUND:-}" = "1" ]; then
+  exit 0
+fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 TAG_RE='^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -17,9 +21,11 @@ TAG_RE='^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'
 while read -r local_ref local_sha remote_ref remote_sha; do
   if [[ "$remote_ref" =~ $TAG_RE ]]; then
     TAG="${remote_ref##refs/tags/}"
-    LOG="$REPO_ROOT/target/.release-sign.log"
+    LOG="$REPO_ROOT/target/release-sign-$TAG.log"
     mkdir -p "$REPO_ROOT/target"
+    : >"$LOG"
     echo "[pre-push] $TAG detected — release-sign.sh queued in background"
+    echo "[pre-push] For foreground release flow, use: scripts/release.sh $TAG"
     echo "[pre-push] tail -f $LOG   to watch progress (~5-7 min)"
     nohup "$REPO_ROOT/release-sign.sh" "$TAG" \
       </dev/null >>"$LOG" 2>&1 &

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.15
+
+- Fixed in-document anchor links by automatically generating stable heading IDs, including Chinese headings such as `## 需求概述`, while preserving explicit `{#id}` heading attributes.
+- Added a foreground maintainer release script that verifies the project, pushes the tag, waits for GitHub Actions, signs/notarizes/staples the macOS DMG, uploads the Sparkle appcast, and validates the final Release assets.
+
 ## 1.1.14
 
 - Fixed in-preview search with Chinese IME input by deferring search while text composition is active and restoring focus after native find updates the selection.

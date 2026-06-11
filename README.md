@@ -167,6 +167,14 @@ cargo build --release
 
 CI builds macOS, Windows, and Linux. Release tags matching `v*` produce a macOS DMG, standalone Windows EXE, and Linux tarball through GitHub Actions.
 
+Maintainer release flow:
+
+```bash
+scripts/release.sh v1.2.3
+```
+
+The script runs verification, pushes `master` and the tag, waits for GitHub Actions, signs/notarizes/staples the macOS DMG in the foreground, uploads `appcast.xml`, and verifies the final Release assets.
+
 ## License
 
 [MIT](LICENSE)

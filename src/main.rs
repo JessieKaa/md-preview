@@ -4,7 +4,8 @@
 )]
 
 use notify::{Event, RecursiveMode, Watcher};
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{html, CowStr, Event as MdEvent, Options, Parser, Tag, TagEnd};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -236,9 +237,98 @@ fn md_to_html(md: &str) -> String {
         | Options::ENABLE_HEADING_ATTRIBUTES
         | Options::ENABLE_MATH;
     let parser = Parser::new_ext(md, opts);
+    let events = add_heading_ids(parser.collect());
     let mut html_out = String::new();
-    html::push_html(&mut html_out, parser);
+    html::push_html(&mut html_out, events.into_iter());
     html_out
+}
+
+fn add_heading_ids<'a>(mut events: Vec<MdEvent<'a>>) -> Vec<MdEvent<'a>> {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+
+    for i in 0..events.len() {
+        let generate_id = match &events[i] {
+            MdEvent::Start(Tag::Heading { id: Some(id), .. }) => {
+                register_heading_id(id.as_ref(), &mut seen);
+                false
+            }
+            MdEvent::Start(Tag::Heading { id: None, .. }) => true,
+            _ => false,
+        };
+
+        if !generate_id {
+            continue;
+        }
+
+        let text = collect_heading_text(&events, i);
+        let base = heading_slug(&text);
+        let id_value = unique_heading_id(base, &mut seen);
+        if let MdEvent::Start(Tag::Heading { id, .. }) = &mut events[i] {
+            *id = Some(CowStr::Boxed(id_value.into_boxed_str()));
+        }
+    }
+
+    events
+}
+
+fn collect_heading_text(events: &[MdEvent<'_>], start: usize) -> String {
+    let mut text = String::new();
+
+    for event in events.iter().skip(start + 1) {
+        match event {
+            MdEvent::End(TagEnd::Heading(_)) => break,
+            MdEvent::Text(value)
+            | MdEvent::Code(value)
+            | MdEvent::InlineMath(value)
+            | MdEvent::DisplayMath(value) => text.push_str(value.as_ref()),
+            MdEvent::SoftBreak | MdEvent::HardBreak => text.push(' '),
+            _ => {}
+        }
+    }
+
+    text
+}
+
+fn heading_slug(text: &str) -> String {
+    let mut slug = String::new();
+    let mut last_dash = false;
+
+    for c in text.trim().chars().flat_map(char::to_lowercase) {
+        if c.is_alphanumeric() || c == '_' || c == '-' {
+            slug.push(c);
+            last_dash = false;
+        } else if c.is_whitespace() && !slug.is_empty() && !last_dash {
+            slug.push('-');
+            last_dash = true;
+        }
+    }
+
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+
+    if slug.is_empty() {
+        "section".to_string()
+    } else {
+        slug
+    }
+}
+
+fn register_heading_id(id: &str, seen: &mut HashMap<String, usize>) {
+    if !id.is_empty() {
+        *seen.entry(id.to_string()).or_insert(0) += 1;
+    }
+}
+
+fn unique_heading_id(base: String, seen: &mut HashMap<String, usize>) -> String {
+    let count = seen.entry(base.clone()).or_insert(0);
+    let id = if *count == 0 {
+        base
+    } else {
+        format!("{base}-{count}")
+    };
+    *count += 1;
+    id
 }
 
 // Embedded highlight.js + themes (offline)
@@ -1086,6 +1176,24 @@ mod tests {
         assert!(html.contains(r#"<span class="math math-inline">\bar{\mu}_{n}</span>"#));
         assert!(html.contains(r#"<span class="math math-inline">x_{n}</span>"#));
         assert!(!html.contains("<em>"));
+    }
+
+    #[test]
+    fn generated_heading_ids_support_cjk_anchor_links() {
+        let html = md_to_html("1. [需求概述](#需求概述)\n\n## 需求概述");
+
+        assert!(html.contains(r##"<a href="#%E9%9C%80%E6%B1%82%E6%A6%82%E8%BF%B0">需求概述</a>"##));
+        assert!(html.contains(r#"<h2 id="需求概述">需求概述</h2>"#));
+    }
+
+    #[test]
+    fn generated_heading_ids_are_unique_and_keep_explicit_ids() {
+        let html = md_to_html("## Intro\n## Intro\n## Custom {#fixed}\n## Fixed");
+
+        assert!(html.contains(r#"<h2 id="intro">Intro</h2>"#));
+        assert!(html.contains(r#"<h2 id="intro-1">Intro</h2>"#));
+        assert!(html.contains(r#"<h2 id="fixed">Custom</h2>"#));
+        assert!(html.contains(r#"<h2 id="fixed-1">Fixed</h2>"#));
     }
 
     #[test]

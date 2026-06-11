@@ -167,6 +167,14 @@ cargo build --release
 
 CI 会构建 macOS、Windows、Linux。推送匹配 `v*` 的 tag 后，GitHub Actions 会产出 macOS DMG、Windows 单文件 EXE 和 Linux tarball。
 
+维护者发版流程：
+
+```bash
+scripts/release.sh v1.2.3
+```
+
+脚本会前台执行验证、推送 `master` 和 tag、等待 GitHub Actions、签名/公证/staple macOS DMG、上传 `appcast.xml`，并验证最终 Release assets。
+
 ## 许可证
 
 [MIT](LICENSE)

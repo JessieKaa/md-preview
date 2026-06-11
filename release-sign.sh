@@ -28,13 +28,18 @@ if [ -z "$TAG" ]; then
   exit 1
 fi
 
-notify_if_failed() {
+WORK=""
+
+cleanup() {
   local rc=$?
+  if [ -n "$WORK" ] && [ -d "$WORK" ]; then
+    rm -rf "$WORK" 2>/dev/null || true
+  fi
   if [ "$rc" -ne 0 ] && command -v osascript >/dev/null 2>&1; then
-    osascript -e "display notification \"${TAG:-?} signing FAILED (rc=$rc). See target/.release-sign.log\" with title \"md-preview signing FAILED\"" >/dev/null 2>&1 || true
+    osascript -e "display notification \"${TAG:-?} signing FAILED (rc=$rc). See target/release-sign-${TAG:-unknown}.log\" with title \"md-preview signing FAILED\"" >/dev/null 2>&1 || true
   fi
 }
-trap notify_if_failed EXIT
+trap cleanup EXIT
 
 REPO="vorojar/md-preview"
 ASSET="MD-Preview-macOS-universal.dmg"
@@ -46,7 +51,6 @@ if [ ! -x "$SIGN_SCRIPT" ]; then
 fi
 
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
 
 # Remove any stale sentinel from a previous run of the same tag, so a
 # waiter doesn't see an old DONE and think this one finished instantly.
