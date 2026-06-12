@@ -35,7 +35,7 @@
 - [x] App Store metadata、隐私政策 URL、支持 URL、分类、内容权利、年龄分级、免费价格和 175 个国家/地区销售范围已配置。
 - [x] iPhone 6.5-inch 与 iPad Pro 12.9-inch 截图各 3 张已重新生成并上传，重点展示 Mermaid diagrams、KaTeX notes、搜索和 README 渲染，均返回 `COMPLETE`。
 - [x] App Privacy 已发布为“未收集数据”。
-- [ ] App Review 联系人信息待用户提供：名字、姓氏、邮箱、电话号码。
+- [x] App Review 联系人信息已配置，版本已提交审核，状态为 `WAITING_FOR_REVIEW`。
 
 ## 执行记录
 
@@ -62,6 +62,8 @@
 - [x] 重新生成并上传 App Store 截图到 localization `dde3155e-18ac-46b5-a814-d3db22746d35`，替换旧截图。
 - [x] App Privacy 网页问卷选择“不收集数据”，并发布隐私答复。
 - [x] App Review 登录信息改为“不需要登录”，并补充 reviewer notes。
+- [x] App Review 联系人信息已按用户提供内容写入 App Store Connect，不在仓库记录明文。
+- [x] 提交 App Store 审核，submission id `5f1e7fbe-9f52-46c1-bd7b-011d38395301`。
 
 ## 验证记录
 
@@ -158,6 +160,21 @@
 
 命令：asc validate --app 6779451523 --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --platform IOS --output json
 结果：未完全通过。剩余 4 个 blocking errors 均为 App Review 联系人缺失：`contactFirstName`、`contactLastName`、`contactEmail`、`contactPhone`。另外 `whatsNew` 是首发版本不可编辑警告，App Privacy 是公共 API 无法验证的 info，但网页已确认发布。
+
+命令：asc review details-update --id 0c166707-b198-4800-afb4-800c90fd9e8b ...
+结果：通过。App Review 联系人字段和 reviewer notes 已配置；联系人明文不写入仓库。
+
+命令：asc validate --app 6779451523 --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --platform IOS --output json
+结果：通过提交前检查。`errors: 0`、`blocking: 0`；仅剩首发 `whatsNew` 空的 warning，以及 App Privacy 公共 API 不可验证的 info。
+
+命令：asc review doctor --app 6779451523 --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --platform IOS --output json
+结果：通过。无 submission blockers，next action 为提交版本。
+
+命令：asc review submit --app 6779451523 --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --build eadcd636-878e-40a4-95ee-f9ce93b86133 --platform IOS --confirm --output json
+结果：通过。submission id `5f1e7fbe-9f52-46c1-bd7b-011d38395301`，submittedDate `2026-06-12T02:30:49.757Z`。
+
+命令：asc review status --app 6779451523 --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --platform IOS --output json
+结果：通过。版本状态 `WAITING_FOR_REVIEW`，next action 为等待 App Store review outcome。
 ```
 
 ## 风险和假设
@@ -165,7 +182,7 @@
 - App Store Connect app record 已创建，但 `MD Preview`、`Markdown Preview` 和 `Markdown Previewer` 均被 Apple 判定名称占用；当前公开名称使用 `Local Markdown Preview`。
 - TestFlight build 已上传并处理为 `VALID`；App Store metadata、截图、隐私、价格和销售范围已补齐。
 - 第一版截图的根因是把 App Store 目标像素尺寸当作浏览器 CSS viewport 截图，导致 iPad 画布比例失真、内容像窄屏手机稿；已改为真实设备 CSS viewport + DPR，并保留脚本防止回退。
-- 正式提交 App Store 前仍需用户提供真实 App Review 联系人：名字、姓氏、邮箱、电话号码。未获得用户明确提供前，不擅自填写或提交。
+- App Store 审核已提交，当前等待 Apple Review 结果。
 - 真机已能安装启动 app，但 Open In / 分享面板真实文件流仍建议用户在手机上用 Files、微信、企业微信各测一次。
 
 ---
