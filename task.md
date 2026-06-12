@@ -6,7 +6,7 @@
 - 将 iOS 版本号对齐到当前 mobile release 线。
 - 验证 iOS 构建、归档、模拟器安装启动和移动端渲染。
 - 配好 iOS signing team、App Store Connect API key、本机开发签名、真机安装和分发 IPA。
-- 明确剩余阻塞项：App Store Connect app record。
+- 创建 App Store Connect app record、TestFlight 内部测试组，并上传首个 TestFlight build。
 
 ## 非目标
 
@@ -27,7 +27,9 @@
 - [x] `app.mdpreview.mobile` 显式 bundle id 创建成功。
 - [x] Xcode automatic signing 配置 Team `BUR55497B4`，真机构建、安装、启动成功。
 - [x] App Store Connect 分发 IPA 导出成功，签名为 `Apple Distribution`。
-- [x] 记录 TestFlight/App Store 上传剩余阻塞项。
+- [x] App Store Connect app record 创建成功，app id 为 `6779451523`。
+- [x] TestFlight 内部测试组创建成功，group id 为 `061ed3ee-dd2a-4449-87f8-3967c065ba1e`。
+- [x] TestFlight build `1.0.7 (8)` 上传成功并处理为 `VALID`。
 
 ## 执行记录
 
@@ -41,6 +43,9 @@
 - [x] 创建 bundle id：`6P439S39PG` / `app.mdpreview.mobile` / Team `BUR55497B4`。
 - [x] Xcode 自动创建 Apple Development 证书和开发 profile，真机安装到连接的 iPhone。
 - [x] 导出 App Store Connect IPA：`mobile/ios/build/export/MD Preview.ipa`。
+- [x] 通过 App Store Connect 网页创建 app record：`Local Markdown Preview` / `app.mdpreview.mobile` / SKU `md-preview-ios`。
+- [x] 创建 TestFlight 内部测试组：`Internal Testers`。
+- [x] 上传 `mobile/ios/build/export/MD Preview.ipa` 到 TestFlight，并挂到 `Internal Testers`。
 
 ## 验证记录
 
@@ -86,12 +91,24 @@
 
 命令：./scripts/verify.sh
 结果：通过。覆盖 release signing contract、cargo test、anchor navigation、Sparkle update、Windows self-update、iOS xcodegen/build/parse、Android debug/release、mobile renderer、release readiness。
+
+命令：asc apps list --bundle-id app.mdpreview.mobile --output json
+结果：通过。返回 app id `6779451523`，名称 `Local Markdown Preview`，SKU `md-preview-ios`，primary locale `en-US`。
+
+命令：asc testflight groups list --app 6779451523 --output json
+结果：通过。返回内部测试组 `Internal Testers`，group id `061ed3ee-dd2a-4449-87f8-3967c065ba1e`。
+
+命令：asc publish testflight --app 6779451523 --ipa "mobile/ios/build/export/MD Preview.ipa" --group "061ed3ee-dd2a-4449-87f8-3967c065ba1e" --test-notes "Initial iOS TestFlight build for Markdown preview file-open validation." --locale en-US --wait --timeout 30m --output json
+结果：通过。上传 build id `eadcd636-878e-40a4-95ee-f9ce93b86133`，版本 `1.0.7` build `8`，processingState `VALID`，已关联内部测试组。
+
+命令：asc builds latest --app 6779451523 --version 1.0.7 --platform IOS --output json
+结果：通过。最新 build id `eadcd636-878e-40a4-95ee-f9ce93b86133`，processingState `VALID`，usesNonExemptEncryption `false`。
 ```
 
 ## 风险和假设
 
-- App Store Connect 里还没有 `app.mdpreview.mobile` 的 app record；官方 API key 不能创建 app record，`asc web apps create` 属于 experimental/private web API，需用户显式确认或用户在网页中手动创建。
-- 创建 app record 后才能获得 App Store Connect app ID、TestFlight group，并执行 `asc publish testflight --app <APP_ID> --ipa "mobile/ios/build/export/MD Preview.ipa"`。
+- App Store Connect app record 已创建，但 `MD Preview`、`Markdown Preview` 和 `Markdown Previewer` 均被 Apple 判定名称占用；当前公开名称使用 `Local Markdown Preview`。
+- TestFlight build 已上传并处理为 `VALID`；后续正式提交 App Store 仍需要补 metadata、截图、隐私/内容信息并单独确认。
 - 真机已能安装启动 app，但 Open In / 分享面板真实文件流仍建议用户在手机上用 Files、微信、企业微信各测一次。
 
 ---
