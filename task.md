@@ -7,11 +7,12 @@
 - 验证 iOS 构建、归档、模拟器安装启动和移动端渲染。
 - 配好 iOS signing team、App Store Connect API key、本机开发签名、真机安装和分发 IPA。
 - 创建 App Store Connect app record、TestFlight 内部测试组，并上传首个 TestFlight build。
+- 补齐 App Store metadata、截图、隐私、内容权利、分类、价格和销售范围。
 
 ## 非目标
 
 - 不使用 experimental `asc web` 私有接口自动创建 App Store Connect app record，除非用户显式确认。
-- 不直接提交 App Store 审核；正式提交需要额外确认、metadata 和截图。
+- 不直接提交 App Store 审核；正式提交仍需要 App Review 真实联系人并单独确认。
 - 不修改 Android 发布配置。
 
 ## 验收场景
@@ -30,6 +31,11 @@
 - [x] App Store Connect app record 创建成功，app id 为 `6779451523`。
 - [x] TestFlight 内部测试组创建成功，group id 为 `061ed3ee-dd2a-4449-87f8-3967c065ba1e`。
 - [x] TestFlight build `1.0.7 (8)` 上传成功并处理为 `VALID`。
+- [x] App Store version `1.0.7` 绑定 build `eadcd636-878e-40a4-95ee-f9ce93b86133`。
+- [x] App Store metadata、隐私政策 URL、支持 URL、分类、内容权利、年龄分级、免费价格和 175 个国家/地区销售范围已配置。
+- [x] iPhone 6.5-inch 与 iPad Pro 12.9-inch 截图各 3 张已上传并返回 `COMPLETE`。
+- [x] App Privacy 已发布为“未收集数据”。
+- [ ] App Review 联系人信息待用户提供：名字、姓氏、邮箱、电话号码。
 
 ## 执行记录
 
@@ -46,6 +52,15 @@
 - [x] 通过 App Store Connect 网页创建 app record：`Local Markdown Preview` / `app.mdpreview.mobile` / SKU `md-preview-ios`。
 - [x] 创建 TestFlight 内部测试组：`Internal Testers`。
 - [x] 上传 `mobile/ios/build/export/MD Preview.ipa` 到 TestFlight，并挂到 `Internal Testers`。
+- [x] 新增公开页面：`docs/privacy.html` 和 `docs/support.html`。
+- [x] 配置 App Store version：`1.0.7`、版权、关联 build、description、keywords、promotional text、support URL、marketing URL。
+- [x] 配置 app-level 信息：名称 `Local Markdown Preview`、subtitle `Open Markdown files locally`、privacy policy URL、内容权利 `DOES_NOT_USE_THIRD_PARTY_CONTENT`。
+- [x] 配置分类：primary `PRODUCTIVITY`、secondary `DEVELOPER_TOOLS`。
+- [x] 配置年龄分级为 safe defaults：不含广告、赌博、聊天、用户生成内容、不受限网页访问等。
+- [x] 配置免费价格，并通过网页初始化所有 175 个国家/地区发布时供应。
+- [x] 生成并上传 App Store 截图到 localization `dde3155e-18ac-46b5-a814-d3db22746d35`。
+- [x] App Privacy 网页问卷选择“不收集数据”，并发布隐私答复。
+- [x] App Review 登录信息改为“不需要登录”，并补充 reviewer notes。
 
 ## 验证记录
 
@@ -103,12 +118,43 @@
 
 命令：asc builds latest --app 6779451523 --version 1.0.7 --platform IOS --output json
 结果：通过。最新 build id `eadcd636-878e-40a4-95ee-f9ce93b86133`，processingState `VALID`，usesNonExemptEncryption `false`。
+
+命令：asc versions update --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --version 1.0.7 --copyright "2026 Ningbo Huli Huli Network Technology Co., Ltd." --release-type AFTER_APPROVAL
+结果：通过。App Store version 更新为 `1.0.7`。
+
+命令：asc versions attach-build --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --build eadcd636-878e-40a4-95ee-f9ce93b86133
+结果：通过。App Store version 已绑定 TestFlight build。
+
+命令：asc apps info edit --app 6779451523 --version 1.0.7 --platform IOS --locale en-US ...
+结果：通过。写入 description、keywords、promotional text、support URL 和 marketing URL。首发版本的 `whatsNew` 被 Apple 拒绝编辑，保留为空。
+
+命令：asc app-setup info set --app 6779451523 ... && asc categories set ... && asc age-rating edit --app 6779451523 --all-none
+结果：通过。写入 app-level metadata、内容权利、分类和年龄分级。
+
+命令：asc app-setup pricing set --app 6779451523 --free --start-date 2026-06-11
+结果：通过。免费价格生效。
+
+命令：asc screenshots validate --path target/app-store-screenshots/iphone --device-type APP_IPHONE_65 && asc screenshots validate --path target/app-store-screenshots/ipad --device-type APP_IPAD_PRO_3GEN_129
+结果：通过。iPhone 三张 `1284x2778`，iPad 三张 `2048x2732`，均符合 ASC 尺寸要求。
+
+命令：asc screenshots upload --version-localization dde3155e-18ac-46b5-a814-d3db22746d35 --path target/app-store-screenshots/{iphone,ipad} ...
+结果：通过。iPhone set `22e09205-308d-41f8-8cb9-c87030f39ef9`、iPad set `e380c0b0-559d-4135-89e3-e9ae9600ed14`，6 张截图状态均为 `COMPLETE`。
+
+命令：App Store Connect 网页 / Pricing and Availability
+结果：通过。初始化所有 175 个国家/地区发布时供应。
+
+命令：App Store Connect 网页 / App Privacy
+结果：通过。隐私政策 URL 已显示；问卷选择“不收集数据”；隐私答复已发布，页面显示“未收集数据”。
+
+命令：asc validate --app 6779451523 --version-id e1e365a2-150c-4348-9226-7f5c13ed8b66 --platform IOS --output json
+结果：未完全通过。剩余 4 个 blocking errors 均为 App Review 联系人缺失：`contactFirstName`、`contactLastName`、`contactEmail`、`contactPhone`。另外 `whatsNew` 是首发版本不可编辑警告，App Privacy 是公共 API 无法验证的 info，但网页已确认发布。
 ```
 
 ## 风险和假设
 
 - App Store Connect app record 已创建，但 `MD Preview`、`Markdown Preview` 和 `Markdown Previewer` 均被 Apple 判定名称占用；当前公开名称使用 `Local Markdown Preview`。
-- TestFlight build 已上传并处理为 `VALID`；后续正式提交 App Store 仍需要补 metadata、截图、隐私/内容信息并单独确认。
+- TestFlight build 已上传并处理为 `VALID`；App Store metadata、截图、隐私、价格和销售范围已补齐。
+- 正式提交 App Store 前仍需用户提供真实 App Review 联系人：名字、姓氏、邮箱、电话号码。未获得用户明确提供前，不擅自填写或提交。
 - 真机已能安装启动 app，但 Open In / 分享面板真实文件流仍建议用户在手机上用 Files、微信、企业微信各测一次。
 
 ---
