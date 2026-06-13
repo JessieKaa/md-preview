@@ -13,8 +13,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tao::dpi::{LogicalPosition, LogicalSize};
 use tao::event::{Event as TaoEvent, WindowEvent};
-use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
-use tao::window::{Window, WindowBuilder};
+use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
+use tao::window::{Theme, Window, WindowBuilder};
 use wry::WebViewBuilder;
 
 const ICON_BYTES: &[u8] = include_bytes!("../assets/icon.ico");
@@ -24,12 +24,52 @@ static APP_DIRTY: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]
 enum UserEvent {
+    OpenFile,
     FileChanged, // external change: refresh preview AND textarea
     FileSaved,   // our own save: refresh preview only, leave textarea cursor alone
     DirtyChanged(bool),
+    ToggleEdit,
+    ShowFind,
     Print, // route print through wry's native API (WKWebView ignores window.print())
+    CheckUpdates,
+    SetTheme(ThemeChoice),
+    OpenUrl(&'static str),
     RecentChanged,
     Ready, // first paint landed: inject hljs now; if bench mode, also exit
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+enum ThemeChoice {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl ThemeChoice {
+    fn as_str(self) -> &'static str {
+        match self {
+            ThemeChoice::System => "system",
+            ThemeChoice::Light => "light",
+            ThemeChoice::Dark => "dark",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "light" => ThemeChoice::Light,
+            "dark" => ThemeChoice::Dark,
+            _ => ThemeChoice::System,
+        }
+    }
+
+    fn tao_theme(self) -> Option<Theme> {
+        match self {
+            ThemeChoice::System => None,
+            ThemeChoice::Light => Some(Theme::Light),
+            ThemeChoice::Dark => Some(Theme::Dark),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -148,6 +188,22 @@ struct WindowGeom {
 
 fn geom_path() -> PathBuf {
     config_dir().join("window.geom")
+}
+
+fn theme_path() -> PathBuf {
+    config_dir().join("theme.txt")
+}
+
+fn load_theme_choice() -> ThemeChoice {
+    fs::read_to_string(theme_path())
+        .map(|raw| ThemeChoice::from_str(&raw))
+        .unwrap_or_default()
+}
+
+fn save_theme_choice(choice: ThemeChoice) {
+    let dir = config_dir();
+    let _ = fs::create_dir_all(&dir);
+    let _ = fs::write(dir.join("theme.txt"), choice.as_str());
 }
 
 fn load_window_geom() -> Option<WindowGeom> {
@@ -282,14 +338,20 @@ fn push_mark_highlight_events<'a>(text: &str, out: &mut Vec<MdEvent<'a>>) {
                 rest[..open].to_string().into_boxed_str(),
             )));
         }
-        out.push(MdEvent::Html(CowStr::Borrowed(r#"<mark class="mdp-mark">"#)));
-        out.push(MdEvent::Text(CowStr::Boxed(body.to_string().into_boxed_str())));
+        out.push(MdEvent::Html(CowStr::Borrowed(
+            r#"<mark class="mdp-mark">"#,
+        )));
+        out.push(MdEvent::Text(CowStr::Boxed(
+            body.to_string().into_boxed_str(),
+        )));
         out.push(MdEvent::Html(CowStr::Borrowed("</mark>")));
         rest = &rest[close + 2..];
     }
 
     if !rest.is_empty() {
-        out.push(MdEvent::Text(CowStr::Boxed(rest.to_string().into_boxed_str())));
+        out.push(MdEvent::Text(CowStr::Boxed(
+            rest.to_string().into_boxed_str(),
+        )));
     }
 }
 
@@ -973,12 +1035,14 @@ body.editing #btn-print {{ display: none; }}
 	    if (inEdit()) leaveEdit();
 	    window.ipc.postMessage('open');
 	  }}
+	  window.__mdPreviewOpenFile = openFile;
 	  function showFind() {{
 	    if (document.body.classList.contains('empty')) return;
 	    if (inEdit()) return;
 	    document.body.classList.add('finding');
 	    setTimeout(function(){{ findInput.focus(); findInput.select(); }}, 0);
 	  }}
+	  window.__mdPreviewShowFind = showFind;
 	  function hideFind() {{
 	    document.body.classList.remove('finding');
 	    findInput.value = '';
@@ -1056,6 +1120,12 @@ body.editing #btn-print {{ display: none; }}
     btnToggle.title = L_EDIT;
     btnToggle.setAttribute('aria-label', L_EDIT);
   }}
+  window.__mdPreviewToggleEdit = function() {{
+    if (inEdit()) leaveEdit(); else enterEdit();
+  }};
+  window.__mdPreviewCheckUpdates = function() {{
+    if (btnUpdate) btnUpdate.click();
+  }};
 
 	  btnOpen.addEventListener('click', openFile);
 	  btnSearch.addEventListener('click', showFind);
@@ -1088,7 +1158,7 @@ body.editing #btn-print {{ display: none; }}
 	  findClose.addEventListener('click', hideFind);
 
 	  btnToggle.addEventListener('click', function() {{
-	    if (inEdit()) leaveEdit(); else enterEdit();
+	    window.__mdPreviewToggleEdit();
 	  }});
   btnPrint.addEventListener('click', function() {{
     if (inEdit()) leaveEdit();
@@ -1382,6 +1452,15 @@ mod tests {
     }
 
     #[test]
+    fn theme_choice_parses_menu_values() {
+        assert_eq!(ThemeChoice::from_str("system"), ThemeChoice::System);
+        assert_eq!(ThemeChoice::from_str("light"), ThemeChoice::Light);
+        assert_eq!(ThemeChoice::from_str("dark"), ThemeChoice::Dark);
+        assert_eq!(ThemeChoice::from_str("unexpected"), ThemeChoice::System);
+        assert_eq!(ThemeChoice::Dark.as_str(), "dark");
+    }
+
+    #[test]
     fn page_blocks_native_preview_reload_paths() {
         let strings = Strings::for_lang(Lang::En);
         let page = build_page(
@@ -1399,6 +1478,10 @@ mod tests {
         assert!(page.contains("id=\"btn-open\""));
         assert!(page.contains("id=\"btn-search\""));
         assert!(page.contains("window.ipc.postMessage('open')"));
+        assert!(page.contains("window.__mdPreviewOpenFile = openFile"));
+        assert!(page.contains("window.__mdPreviewShowFind = showFind"));
+        assert!(page.contains("window.__mdPreviewToggleEdit"));
+        assert!(page.contains("window.__mdPreviewCheckUpdates"));
         assert!(page.contains("Cmd/Ctrl+F"));
         assert!(page.contains("body.editing #btn-open"));
         assert!(page.contains("ta.focus({ preventScroll: true })"));
@@ -1602,17 +1685,178 @@ fn register_as_default(_lang: Lang) {
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn register_as_default(_lang: Lang) {}
 
+const WEBSITE_URL: &str = "https://vorojar.github.io/md-preview/";
+const GITHUB_URL: &str = "https://github.com/vorojar/md-preview";
+
 #[cfg(target_os = "macos")]
-fn install_macos_edit_menu() {
-    use objc2::runtime::Sel;
-    use objc2::sel;
-    use objc2::MainThreadOnly;
-    use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
+thread_local! {
+    static MACOS_MENU_PROXY: std::cell::RefCell<Option<EventLoopProxy<UserEvent>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(target_os = "macos")]
+fn send_macos_menu_event(event: UserEvent) {
+    MACOS_MENU_PROXY.with(|cell| {
+        if let Some(proxy) = cell.borrow().as_ref() {
+            let _ = proxy.send_event(event);
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn macos_menu_controller_class() -> &'static objc2::runtime::AnyClass {
+    use objc2::runtime::{AnyClass, AnyObject, ClassBuilder, NSObject, Sel};
+    use objc2::{sel, AnyThread, ClassType};
+    use objc2_app_kit::{
+        NSAboutPanelOptionApplicationName, NSAboutPanelOptionApplicationVersion,
+        NSAboutPanelOptionCredits, NSApplication, NSControlStateValueOff, NSControlStateValueOn,
+        NSMenuItem,
+    };
+    use objc2_foundation::{MainThreadMarker, NSAttributedString, NSDictionary, NSString};
+    use std::sync::Once;
+
+    extern "C" fn open_file(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::OpenFile);
+    }
+
+    extern "C" fn show_find(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::ShowFind);
+    }
+
+    extern "C" fn toggle_edit(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::ToggleEdit);
+    }
+
+    extern "C" fn print(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::Print);
+    }
+
+    extern "C" fn check_updates(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::CheckUpdates);
+    }
+
+    extern "C" fn open_website(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::OpenUrl(WEBSITE_URL));
+    }
+
+    extern "C" fn open_github(_: &AnyObject, _: Sel, _: &AnyObject) {
+        send_macos_menu_event(UserEvent::OpenUrl(GITHUB_URL));
+    }
+
+    extern "C" fn set_theme(_: &AnyObject, _: Sel, sender: &NSMenuItem) {
+        let choice = match sender.tag() {
+            102 => ThemeChoice::Light,
+            103 => ThemeChoice::Dark,
+            _ => ThemeChoice::System,
+        };
+        let selected = sender.tag();
+        if let Some(menu) = unsafe { sender.menu() } {
+            for index in 0..menu.numberOfItems() {
+                if let Some(item) = menu.itemAtIndex(index) {
+                    let tag = item.tag();
+                    if (101..=103).contains(&tag) {
+                        item.setState(if tag == selected {
+                            NSControlStateValueOn
+                        } else {
+                            NSControlStateValueOff
+                        });
+                    }
+                }
+            }
+        }
+        send_macos_menu_event(UserEvent::SetTheme(choice));
+    }
+
+    extern "C" fn show_about(_: &AnyObject, _: Sel, _: &AnyObject) {
+        let Some(mtm) = MainThreadMarker::new() else {
+            return;
+        };
+        let app = NSApplication::sharedApplication(mtm);
+        let app_name = NSString::from_str("MD Preview");
+        let version = NSString::from_str(env!("CARGO_PKG_VERSION"));
+        let credits_text = NSString::from_str(&format!(
+            "Local-first Markdown preview for AI-generated docs, README drafts, Mermaid diagrams, and KaTeX notes.\n\nWebsite: {WEBSITE_URL}\nGitHub: {GITHUB_URL}"
+        ));
+        let credits =
+            NSAttributedString::initWithString(NSAttributedString::alloc(), &credits_text);
+        let app_name_obj =
+            unsafe { &*(objc2::rc::Retained::as_ptr(&app_name) as *const AnyObject) };
+        let version_obj = unsafe { &*(objc2::rc::Retained::as_ptr(&version) as *const AnyObject) };
+        let credits_obj = unsafe { &*(objc2::rc::Retained::as_ptr(&credits) as *const AnyObject) };
+        let keys = unsafe {
+            [
+                NSAboutPanelOptionApplicationName,
+                NSAboutPanelOptionApplicationVersion,
+                NSAboutPanelOptionCredits,
+            ]
+        };
+        let options = NSDictionary::from_slices(&keys, &[app_name_obj, version_obj, credits_obj]);
+        unsafe {
+            app.orderFrontStandardAboutPanelWithOptions(&options);
+        }
+    }
+
+    static REGISTER_CLASS: Once = Once::new();
+    REGISTER_CLASS.call_once(|| {
+        let mut builder = ClassBuilder::new(c"MDPreviewMenuController", NSObject::class()).unwrap();
+        unsafe {
+            builder.add_method(
+                sel!(mdPreviewOpenFile:),
+                open_file as extern "C" fn(_, _, _),
+            );
+            builder.add_method(
+                sel!(mdPreviewShowFind:),
+                show_find as extern "C" fn(_, _, _),
+            );
+            builder.add_method(
+                sel!(mdPreviewToggleEdit:),
+                toggle_edit as extern "C" fn(_, _, _),
+            );
+            builder.add_method(sel!(mdPreviewPrint:), print as extern "C" fn(_, _, _));
+            builder.add_method(
+                sel!(mdPreviewCheckUpdates:),
+                check_updates as extern "C" fn(_, _, _),
+            );
+            builder.add_method(
+                sel!(mdPreviewOpenWebsite:),
+                open_website as extern "C" fn(_, _, _),
+            );
+            builder.add_method(
+                sel!(mdPreviewOpenGitHub:),
+                open_github as extern "C" fn(_, _, _),
+            );
+            builder.add_method(
+                sel!(mdPreviewSetTheme:),
+                set_theme as extern "C" fn(_, _, _),
+            );
+            builder.add_method(
+                sel!(mdPreviewShowAbout:),
+                show_about as extern "C" fn(_, _, _),
+            );
+        }
+        let _ = builder.register();
+    });
+
+    AnyClass::get(c"MDPreviewMenuController").unwrap()
+}
+
+#[cfg(target_os = "macos")]
+fn install_macos_menu(proxy: EventLoopProxy<UserEvent>, theme: ThemeChoice) {
+    use objc2::rc::Retained;
+    use objc2::runtime::{AnyObject, Sel};
+    use objc2::{msg_send, sel, MainThreadOnly};
+    use objc2_app_kit::{
+        NSApplication, NSControlStateValueOff, NSControlStateValueOn, NSEventModifierFlags, NSMenu,
+        NSMenuItem,
+    };
     use objc2_foundation::{MainThreadMarker, NSString};
 
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
+    MACOS_MENU_PROXY.with(|cell| {
+        *cell.borrow_mut() = Some(proxy);
+    });
 
     fn menu(title: &str, mtm: MainThreadMarker) -> objc2::rc::Retained<NSMenu> {
         NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str(title))
@@ -1637,10 +1881,63 @@ fn install_macos_edit_menu() {
         item
     }
 
+    fn command_item(
+        title: &str,
+        action: Sel,
+        key: &str,
+        modifiers: NSEventModifierFlags,
+        target: &AnyObject,
+        mtm: MainThreadMarker,
+    ) -> objc2::rc::Retained<NSMenuItem> {
+        let item = item(title, Some(action), key, modifiers, mtm);
+        unsafe {
+            item.setTarget(Some(target));
+        }
+        item
+    }
+
     let app = NSApplication::sharedApplication(mtm);
     let main_menu = menu("", mtm);
+    let controller: Retained<AnyObject> = unsafe { msg_send![macos_menu_controller_class(), new] };
+    let controller_ptr = Retained::into_raw(controller);
+    let controller = unsafe { &*controller_ptr };
 
     let app_menu = menu("MD Preview", mtm);
+    app_menu.setAutoenablesItems(false);
+    app_menu.addItem(&command_item(
+        "About MD Preview",
+        sel!(mdPreviewShowAbout:),
+        "",
+        NSEventModifierFlags::empty(),
+        controller,
+        mtm,
+    ));
+    app_menu.addItem(&NSMenuItem::separatorItem(mtm));
+    app_menu.addItem(&command_item(
+        "MD Preview Website",
+        sel!(mdPreviewOpenWebsite:),
+        "",
+        NSEventModifierFlags::empty(),
+        controller,
+        mtm,
+    ));
+    app_menu.addItem(&command_item(
+        "GitHub Repository",
+        sel!(mdPreviewOpenGitHub:),
+        "",
+        NSEventModifierFlags::empty(),
+        controller,
+        mtm,
+    ));
+    app_menu.addItem(&command_item(
+        "Check for Updates...",
+        sel!(mdPreviewCheckUpdates:),
+        "",
+        NSEventModifierFlags::empty(),
+        controller,
+        mtm,
+    ));
+    app_menu.addItem(&NSMenuItem::separatorItem(mtm));
     app_menu.addItem(&item(
         "Quit MD Preview",
         Some(sel!(terminate:)),
@@ -1651,6 +1948,28 @@ fn install_macos_edit_menu() {
     let app_menu_item = item("MD Preview", None, "", NSEventModifierFlags::empty(), mtm);
     app_menu_item.setSubmenu(Some(&app_menu));
     main_menu.addItem(&app_menu_item);
+
+    let file_menu = menu("File", mtm);
+    file_menu.setAutoenablesItems(false);
+    file_menu.addItem(&command_item(
+        "Open...",
+        sel!(mdPreviewOpenFile:),
+        "o",
+        NSEventModifierFlags::Command,
+        controller,
+        mtm,
+    ));
+    file_menu.addItem(&command_item(
+        "Print...",
+        sel!(mdPreviewPrint:),
+        "p",
+        NSEventModifierFlags::Command,
+        controller,
+        mtm,
+    ));
+    let file_menu_item = item("File", None, "", NSEventModifierFlags::empty(), mtm);
+    file_menu_item.setSubmenu(Some(&file_menu));
+    main_menu.addItem(&file_menu_item);
 
     let edit_menu = menu("Edit", mtm);
     edit_menu.addItem(&item(
@@ -1700,11 +2019,60 @@ fn install_macos_edit_menu() {
     edit_menu_item.setSubmenu(Some(&edit_menu));
     main_menu.addItem(&edit_menu_item);
 
+    let view_menu = menu("View", mtm);
+    view_menu.setAutoenablesItems(false);
+    view_menu.addItem(&command_item(
+        "Find",
+        sel!(mdPreviewShowFind:),
+        "f",
+        NSEventModifierFlags::Command,
+        controller,
+        mtm,
+    ));
+    view_menu.addItem(&command_item(
+        "Toggle Edit Mode",
+        sel!(mdPreviewToggleEdit:),
+        "e",
+        NSEventModifierFlags::Command,
+        controller,
+        mtm,
+    ));
+    view_menu.addItem(&NSMenuItem::separatorItem(mtm));
+    let theme_menu = menu("Theme", mtm);
+    theme_menu.setAutoenablesItems(false);
+    for (label, choice, tag) in [
+        ("System", ThemeChoice::System, 101),
+        ("Light", ThemeChoice::Light, 102),
+        ("Dark", ThemeChoice::Dark, 103),
+    ] {
+        let theme_item = command_item(
+            label,
+            sel!(mdPreviewSetTheme:),
+            "",
+            NSEventModifierFlags::empty(),
+            controller,
+            mtm,
+        );
+        theme_item.setTag(tag);
+        theme_item.setState(if choice == theme {
+            NSControlStateValueOn
+        } else {
+            NSControlStateValueOff
+        });
+        theme_menu.addItem(&theme_item);
+    }
+    let theme_menu_item = item("Theme", None, "", NSEventModifierFlags::empty(), mtm);
+    theme_menu_item.setSubmenu(Some(&theme_menu));
+    view_menu.addItem(&theme_menu_item);
+    let view_menu_item = item("View", None, "", NSEventModifierFlags::empty(), mtm);
+    view_menu_item.setSubmenu(Some(&view_menu));
+    main_menu.addItem(&view_menu_item);
+
     app.setMainMenu(Some(&main_menu));
 }
 
 #[cfg(not(target_os = "macos"))]
-fn install_macos_edit_menu() {}
+fn install_macos_menu(_proxy: EventLoopProxy<UserEvent>, _theme: ThemeChoice) {}
 
 #[cfg(target_os = "macos")]
 mod macos_updater {
@@ -2081,8 +2449,12 @@ fn linux_webkit_compat_env(
 fn apply_linux_webkit_compat_env() {
     let nvidia_driver_present = Path::new("/proc/driver/nvidia/version").exists();
     if let Some((key, value)) = linux_webkit_compat_env(
-        std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok().as_deref(),
-        std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE").ok().as_deref(),
+        std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER")
+            .ok()
+            .as_deref(),
+        std::env::var("WEBKIT_DISABLE_COMPOSITING_MODE")
+            .ok()
+            .as_deref(),
         nvidia_driver_present,
     ) {
         std::env::set_var(key, value);
@@ -2134,8 +2506,9 @@ fn main() {
     });
 
     let event_loop: EventLoop<UserEvent> = EventLoopBuilder::with_user_event().build();
-    install_macos_edit_menu();
     let proxy = event_loop.create_proxy();
+    let initial_theme = load_theme_choice();
+    install_macos_menu(proxy.clone(), initial_theme);
     let native_updater_enabled = native_updater_enabled();
 
     let title = initial_file
@@ -2151,7 +2524,8 @@ fn main() {
     let mut window_builder = WindowBuilder::new()
         .with_title(&title)
         .with_inner_size(LogicalSize::new(geom.w, geom.h))
-        .with_position(LogicalPosition::new(geom.x, geom.y));
+        .with_position(LogicalPosition::new(geom.x, geom.y))
+        .with_theme(initial_theme.tao_theme());
     if let Some(icon) = load_window_icon() {
         window_builder = window_builder.with_window_icon(Some(icon));
     }
@@ -2394,6 +2768,15 @@ fn main() {
         *control_flow = ControlFlow::Wait;
 
         match event {
+            TaoEvent::UserEvent(UserEvent::OpenFile) => {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Markdown", &["md", "markdown", "mdown", "mkd", "txt"])
+                    .pick_file()
+                {
+                    *file_path_for_event.lock().unwrap() = Some(path);
+                    let _ = proxy.send_event(UserEvent::FileChanged);
+                }
+            }
             TaoEvent::UserEvent(UserEvent::FileChanged) => {
                 let fp = file_path_for_event.lock().unwrap().clone();
                 if let Some(ref path) = fp {
@@ -2486,6 +2869,15 @@ fn main() {
                 let prefix = if dirty { "• " } else { "" };
                 window.set_title(&format!("{}{} — MD Preview", prefix, name));
             }
+            TaoEvent::UserEvent(UserEvent::ToggleEdit) => {
+                let _ = webview.evaluate_script(
+                    "if(window.__mdPreviewToggleEdit)window.__mdPreviewToggleEdit();",
+                );
+            }
+            TaoEvent::UserEvent(UserEvent::ShowFind) => {
+                let _ = webview
+                    .evaluate_script("if(window.__mdPreviewShowFind)window.__mdPreviewShowFind();");
+            }
             TaoEvent::UserEvent(UserEvent::RecentChanged) => {
                 let html = empty_preview_html(&strings, &recent_files.lock().unwrap());
                 let js = format!(
@@ -2496,6 +2888,19 @@ fn main() {
             }
             TaoEvent::UserEvent(UserEvent::Print) => {
                 let _ = webview.print();
+            }
+            TaoEvent::UserEvent(UserEvent::CheckUpdates) => {
+                let relaunch_file = file_path_for_event.lock().unwrap().clone();
+                if !check_native_updates(None, None, relaunch_file) {
+                    let _ = open::that("https://github.com/vorojar/md-preview/releases/latest");
+                }
+            }
+            TaoEvent::UserEvent(UserEvent::SetTheme(choice)) => {
+                save_theme_choice(choice);
+                window.set_theme(choice.tao_theme());
+            }
+            TaoEvent::UserEvent(UserEvent::OpenUrl(url)) => {
+                let _ = open::that(url);
             }
             TaoEvent::UserEvent(UserEvent::Ready) => {
                 // First paint is on the screen; now push hljs into the page
