@@ -2,8 +2,8 @@
 
 ## Must pass before calling the mobile app release-ready
 
-- Android: `mobile/scripts/verify-release-readiness.sh` passes and produces a signed `app-release.apk` plus `app-release.aab`.
-- Android: install the signed release APK on an emulator or phone and verify the app launches.
+- Android: `mobile/scripts/verify-release-readiness.sh` passes and produces signed split APKs plus `app-release.aab`.
+- Android: install the signed release APK matching the target device ABI on an emulator or phone and verify the app launches.
 - Android: install `mobile/android/app/build/outputs/apk/debug/app-debug.apk` on a real phone and open `.md`, `.markdown`, `.mdown`, `.mkd` files from Files, WeChat, and WeCom.
 - Android: long-press a Markdown file, choose "Open with", select MD Preview, then verify the system offers it again as the default handler.
 - Android: verify `ACTION_SEND` from WeChat/WeCom share sheet opens the same document.
@@ -16,7 +16,7 @@
 ## Release packaging
 
 - iOS: set the production bundle id, signing team, app category, and archive with Xcode on a machine with the iOS platform installed.
-- Android: keep release signing credentials in `.env.mobile-release` or CI secrets only, build an `.aab`, and verify with `bundletool` or an internal testing track.
+- Android: keep release signing credentials in `.env.mobile-release` or CI secrets only, build split APKs and an `.aab`, and verify with `bundletool` or an internal testing track.
 - Store metadata: screenshots from a real phone, privacy copy emphasizing offline local rendering, and a short note that iOS default file handling depends on the user's Open In choice.
 
 ## Nice-to-have polish

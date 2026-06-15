@@ -111,8 +111,52 @@ jobs:
           name: linux-tar
           path: MD-Preview-linux-x64.tar.gz
 
+  build-android:
+    runs-on: ubuntu-latest
+    env:
+      MD_PREVIEW_ANDROID_KEYSTORE: ${{ github.workspace }}/mobile/android/signing/release.keystore
+      MD_PREVIEW_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.MD_PREVIEW_ANDROID_KEYSTORE_PASSWORD }}
+      MD_PREVIEW_ANDROID_KEY_ALIAS: ${{ secrets.MD_PREVIEW_ANDROID_KEY_ALIAS }}
+      MD_PREVIEW_ANDROID_KEY_PASSWORD: ${{ secrets.MD_PREVIEW_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore Android keystore
+        shell: bash
+        env:
+          MD_PREVIEW_ANDROID_KEYSTORE_B64: ${{ secrets.MD_PREVIEW_ANDROID_KEYSTORE_B64 }}
+        run: |
+          mkdir -p mobile/android/signing
+          printf '%s' "$MD_PREVIEW_ANDROID_KEYSTORE_B64" | base64 --decode > "$MD_PREVIEW_ANDROID_KEYSTORE"
+
+      - name: Build Android release artifacts
+        run: |
+          cd mobile/android
+          gradle :app:assembleRelease :app:bundleRelease
+
+      - name: Upload Android APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+
+      - name: Upload Android App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
+
   publish-release:
-    needs: [build-macos, build-windows, build-linux]
+    needs: [build-macos, build-windows, build-linux, build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -127,4 +171,8 @@ jobs:
             MD-Preview-macOS-universal.dmg
             MD-Preview-windows-x64.exe
             MD-Preview-linux-x64.tar.gz
+            app-armeabi-v7a-release.apk
+            app-arm64-v8a-release.apk
+            app-x86_64-release.apk
+            app-release.aab
           generate_release_notes: true

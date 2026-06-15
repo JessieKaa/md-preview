@@ -28,7 +28,7 @@ gradle :app:assembleDebug
 # .env.mobile-release and mobile/android/signing/md-preview-upload.keystore
 mobile/scripts/generate-android-upload-keystore.sh
 
-# Build signed Android APK/AAB and generate/check the iOS project.
+# Build signed Android split APKs/AAB and generate/check the iOS project.
 mobile/scripts/build-release.sh
 
 # Release readiness checks used by the root verify script.
@@ -37,7 +37,9 @@ mobile/scripts/verify-release-readiness.sh
 
 Android release artifacts:
 
-- `mobile/android/app/build/outputs/apk/release/app-release.apk`
+- `mobile/android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk`
+- `mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk`
+- `mobile/android/app/build/outputs/apk/release/app-x86_64-release.apk`
 - `mobile/android/app/build/outputs/bundle/release/app-release.aab`
 
 ## Notes

@@ -19,13 +19,19 @@ echo "[mobile-release] Android release APK/AAB"
   gradle :app:clean :app:assembleRelease :app:bundleRelease
 )
 
-ANDROID_APK="$ROOT/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+ANDROID_APK_DIR="$ROOT/mobile/android/app/build/outputs/apk/release"
+mapfile -t ANDROID_APKS < <(find "$ANDROID_APK_DIR" -maxdepth 1 -type f -name '*.apk' | sort)
 ANDROID_AAB="$ROOT/mobile/android/app/build/outputs/bundle/release/app-release.aab"
-if [ -f "$ROOT/mobile/android/app/build/outputs/apk/release/app-release.apk" ]; then
-  ANDROID_APK="$ROOT/mobile/android/app/build/outputs/apk/release/app-release.apk"
+
+if [ "${#ANDROID_APKS[@]}" -eq 0 ]; then
+  echo "[mobile-release] Android APKs: none found"
+else
+  echo "[mobile-release] Android APKs:"
+  for apk in "${ANDROID_APKS[@]}"; do
+    echo "  - $apk"
+  done
 fi
 
-echo "[mobile-release] Android APK: $ANDROID_APK"
 echo "[mobile-release] Android AAB: $ANDROID_AAB"
 
 if command -v xcodegen >/dev/null 2>&1 && command -v xcodebuild >/dev/null 2>&1; then
