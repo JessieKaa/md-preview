@@ -59,7 +59,7 @@ android {
             return
         }
         variant.outputs.each { output ->
-            def abiFilter = output.getFilter(com.android.build.api.variant.FilterConfiguration.FilterType.ABI)
+            def abiFilter = output.getFilter(com.android.build.OutputFile.ABI)
             if (abiFilter != null) {
                 output.versionCodeOverride = defaultConfig.versionCode * 10 + abiVersionCodes[abiFilter]
             }
